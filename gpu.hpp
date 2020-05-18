@@ -9,6 +9,7 @@
 #include <student/fwd.hpp>
 #include <vector>
 #include <map>
+#include <list>
 
 using bufferIT = std::map<BufferID, std::vector<uint8_t>>::iterator;
 
@@ -67,8 +68,11 @@ class GPU{
     /// \addtogroup gpu_init 00. proměnné, inicializace / deinicializace grafické karty
     /// @{
     /// \todo zde si můžete vytvořit proměnné grafické karty (buffery, programy, ...)
-    uint64_t nextBufferID;
     std::map<BufferID, std::vector<uint8_t>> buffers;
+
+    //variables to help with selecting free ID:
+    uint64_t nextFreeID;
+    std::list<uint64_t> freeIDs;
     /// @}
 };
 

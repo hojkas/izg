@@ -17,7 +17,7 @@
  */
 GPU::GPU(){
   /// \todo Zde můžete alokovat/inicializovat potřebné proměnné grafické karty
-    nextBufferID = 0;
+    nextFreeID = 0;
 }
 
 /**
@@ -45,10 +45,17 @@ BufferID GPU::createBuffer(uint64_t size) {
   /// Velikost bufferu je v parameteru size (v bajtech).<br>
   /// Funkce by měla vrátit unikátní identifikátor identifikátor bufferu.<br>
   /// Na grafické kartě by mělo být možné alkovat libovolné množství bufferů o libovolné velikosti.<br>
-    BufferID id = nextBufferID;
-    nextBufferID++;
+    BufferID id = emptyID;
+    if (freeIDs.empty()) {
+        id = nextFreeID;
+        nextFreeID++;
+    }
+    else {
+        id = freeIDs.front();
+        freeIDs.pop_front();
+    }
     auto buffer = std::vector<uint8_t>(size_t(size));
-    buffers.emplace(id, buffer);
+    buffers.emplace(id, move(buffer));
     return id; 
 }
 
@@ -62,7 +69,11 @@ void GPU::deleteBuffer(BufferID buffer) {
   /// Buffer pro smazání je vybrán identifikátorem v parameteru "buffer".
   /// Po uvolnění bufferu je identifikátor volný a může být znovu použit při vytvoření nového bufferu.
     auto it = buffers.find(buffer);
-    if (it != buffers.end()) buffers.erase(it);
+    if (it != buffers.end()) {
+        BufferID removedID = it->first;
+        freeIDs.push_back(removedID);
+        buffers.erase(it);
+    }
 }
 
 /**
@@ -140,7 +151,19 @@ ObjectID GPU::createVertexPuller     (){
   /// \todo Tato funkce vytvoří novou práznou tabulku s nastavením pro vertex puller.<br>
   /// Funkce by měla vrátit identifikátor nové tabulky.
   /// Prázdná tabulka s nastavením neobsahuje indexování a všechny čtecí hlavy jsou vypnuté.
-  return emptyID;
+    VertexPullerID id = emptyID;
+    if (freeIDs.empty()) {
+        id = nextFreeID;
+        nextFreeID++;
+    }
+    else {
+        id = freeIDs.front();
+        freeIDs.pop_front();
+    }
+
+
+
+    return emptyID;
 }
 
 /**
