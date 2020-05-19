@@ -68,11 +68,59 @@ class GPU{
     /// \addtogroup gpu_init 00. proměnné, inicializace / deinicializace grafické karty
     /// @{
     /// \todo zde si můžete vytvořit proměnné grafické karty (buffery, programy, ...)
+    //buffers
     std::map<BufferID, std::vector<uint8_t>> buffers;
-
     //variables to help with selecting free ID:
     uint64_t nextFreeID;
     std::list<uint64_t> freeIDs;
+    //vertex pullers
+    struct Head {
+        bool enabled;
+        AttributeType type;
+        uint64_t stride;
+        uint64_t offset;
+        BufferID buffer;
+        Head() {
+            enabled = false;
+            buffer = emptyID;
+            stride = 0;
+            offset = 0;
+            type = AttributeType::EMPTY;
+        }
+    };
+    struct VertexPuller {
+        bool indexing;
+        IndexType index_type;
+        BufferID index_buffer;
+        Head heads[maxAttributes];
+        VertexPuller() {
+            indexing = false;
+            index_type = IndexType::UINT8;
+            index_buffer = emptyID;
+        }
+    };
+    std::map<VertexPullerID, VertexPuller> vertexPullers;
+    VertexPullerID currVertexPuller;
+    //program
+    struct Program {
+        VertexShader vertex_shader;
+        FragmentShader fragment_shader;
+        Uniforms uniforms;
+        AttributeType types[maxAttributes];
+        Program() {
+            vertex_shader = nullptr;
+            fragment_shader = nullptr;
+            for (auto type : types) {
+                type = AttributeType::EMPTY;
+            }
+        }
+        void attachShaders(VertexShader vs, FragmentShader fs) {
+            vertex_shader = vs;
+            fragment_shader = fs;
+        }
+    };
+    std::map<ProgramID, Program> programs;
+    ProgramID currProgram;
     /// @}
 };
 

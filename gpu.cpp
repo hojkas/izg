@@ -18,6 +18,8 @@
 GPU::GPU(){
   /// \todo Zde můžete alokovat/inicializovat potřebné proměnné grafické karty
     nextFreeID = 0;
+    currVertexPuller = emptyID;
+    currProgram = emptyID;
 }
 
 /**
@@ -161,9 +163,10 @@ ObjectID GPU::createVertexPuller     (){
         freeIDs.pop_front();
     }
 
+    auto vertex = VertexPuller();
+    vertexPullers.emplace(id, vertex);
 
-
-    return emptyID;
+    return id;
 }
 
 /**
@@ -175,6 +178,12 @@ void     GPU::deleteVertexPuller     (VertexPullerID vao){
   /// \todo Tato funkce by měla odstranit tabulku s nastavení pro vertex puller.<br>
   /// Parameter "vao" obsahuje identifikátor tabulky s nastavením.<br>
   /// Po uvolnění nastavení je identifiktátor volný a může být znovu použit.<br>
+    auto it = vertexPullers.find(vao);
+    if (it != vertexPullers.end()) {
+        VertexPullerID removedID = it->first;
+        freeIDs.push_back(removedID);
+        vertexPullers.erase(it);
+    }
 }
 
 /**
@@ -195,6 +204,13 @@ void     GPU::setVertexPullerHead    (VertexPullerID vao,uint32_t head,Attribute
   /// Parametr "stride" nastaví krok čtecí hlavy.<br>
   /// Parametr "offset" nastaví počáteční pozici čtecí hlavy.<br>
   /// Parametr "buffer" vybere buffer, ze kterého bude čtecí hlava číst.<br>
+    auto it = vertexPullers.find(vao);
+    if (it != vertexPullers.end()) {
+        it->second.heads[head].buffer = buffer;
+        it->second.heads[head].offset = offset;
+        it->second.heads[head].stride = stride;
+        it->second.heads[head].type = type;
+    }
 }
 
 /**
@@ -209,6 +225,12 @@ void     GPU::setVertexPullerIndexing(VertexPullerID vao,IndexType type,BufferID
   /// Parametr "vao" vybírá tabulku s nastavením.<br>
   /// Parametr "type" volí typ indexu, který je uložený v bufferu.<br>
   /// Parametr "buffer" volí buffer, ve kterém jsou uloženy indexy.<br>
+    auto it = vertexPullers.find(vao);
+    if (it != vertexPullers.end()) {
+        it->second.indexing = true;
+        it->second.index_type = type;
+        it->second.index_buffer = buffer;
+    }
 }
 
 /**
@@ -222,6 +244,10 @@ void     GPU::enableVertexPullerHead (VertexPullerID vao,uint32_t head){
   /// Pokud je čtecí hlava povolena, hodnoty z bufferu se budou kopírovat do atributu vrcholů vertex shaderu.<br>
   /// Parametr "vao" volí tabulku s nastavením vertex pulleru (vybírá vertex puller).<br>
   /// Parametr "head" volí čtecí hlavu.<br>
+    auto it = vertexPullers.find(vao);
+    if (it != vertexPullers.end()) {
+        it->second.heads[head].enabled = true;
+    }
 }
 
 /**
@@ -234,6 +260,10 @@ void     GPU::disableVertexPullerHead(VertexPullerID vao,uint32_t head){
   /// \todo Tato funkce zakáže čtecí hlavu daného vertex pulleru.<br>
   /// Pokud je čtecí hlava zakázána, hodnoty z bufferu se nebudou kopírovat do atributu vrcholu.<br>
   /// Parametry "vao" a "head" vybírají vertex puller a čtecí hlavu.<br>
+    auto it = vertexPullers.find(vao);
+    if (it != vertexPullers.end()) {
+        it->second.heads[head].enabled = false;
+    }
 }
 
 /**
@@ -244,6 +274,11 @@ void     GPU::disableVertexPullerHead(VertexPullerID vao,uint32_t head){
 void     GPU::bindVertexPuller       (VertexPullerID vao){
   /// \todo Tato funkce aktivuje nastavení vertex pulleru.<br>
   /// Pokud je daný vertex puller aktivován, atributy z bufferů jsou vybírány na základě jeho nastavení.<br>
+    auto it = vertexPullers.find(vao);
+    if (it != vertexPullers.end()) {
+        currVertexPuller = vao;
+    }
+    else currVertexPuller = emptyID;
 }
 
 /**
@@ -252,6 +287,7 @@ void     GPU::bindVertexPuller       (VertexPullerID vao){
 void     GPU::unbindVertexPuller     (){
   /// \todo Tato funkce deaktivuje vertex puller.
   /// To většinou znamená, že se vybere neexistující "emptyID" vertex puller.
+    currVertexPuller = emptyID;
 }
 
 /**
@@ -264,7 +300,9 @@ void     GPU::unbindVertexPuller     (){
 bool     GPU::isVertexPuller         (VertexPullerID vao){
   /// \todo Tato funkce otestuje, zda daný vertex puller existuje.
   /// Pokud ano, funkce vrací true.
-  return false;
+    auto it = vertexPullers.find(vao);
+    if (it != vertexPullers.end()) return true;
+    else return false;
 }
 
 /// @}
@@ -283,7 +321,20 @@ ProgramID        GPU::createProgram         (){
   /// Funkce vrací unikátní identifikátor nového proramu.<br>
   /// Program je seznam nastavení, které obsahuje: ukazatel na vertex a fragment shader.<br>
   /// Dále obsahuje uniformní proměnné a typ výstupních vertex attributů z vertex shaderu, které jsou použity pro interpolaci do fragment atributů.<br>
-  return emptyID;
+    ProgramID id = emptyID;
+    if (freeIDs.empty()) {
+        id = nextFreeID;
+        nextFreeID++;
+    }
+    else {
+        id = freeIDs.front();
+        freeIDs.pop_front();
+    }
+
+    auto program = Program();
+    programs.emplace(id, program);
+
+    return id;
 }
 
 /**
@@ -295,6 +346,12 @@ void             GPU::deleteProgram         (ProgramID prg){
   /// \todo Tato funkce by měla smazat vybraný shader program.<br>
   /// Funkce smaže nastavení shader programu.<br>
   /// Identifikátor programu se stane volným a může být znovu využit.<br>
+    auto it = programs.find(prg);
+    if (it != programs.end()) {
+        ProgramID removedID = it->first;
+        freeIDs.push_back(removedID);
+        programs.erase(it);
+    }
 }
 
 /**
@@ -306,6 +363,10 @@ void             GPU::deleteProgram         (ProgramID prg){
  */
 void             GPU::attachShaders         (ProgramID prg,VertexShader vs,FragmentShader fs){
   /// \todo Tato funkce by měla připojít k vybranému shader programu vertex a fragment shader.
+    auto it = programs.find(prg);
+    if (it != programs.end()) {
+        it->second.attachShaders(vs, fs);
+    }
 }
 
 /**
@@ -322,6 +383,10 @@ void             GPU::setVS2FSType          (ProgramID prg,uint32_t attrib,Attri
   /// Tyto atributy obsahují interpolované hodnoty vertex atributů.<br>
   /// Tato funkce vybere jakého typu jsou tyto interpolované atributy.<br>
   /// Bez jakéhokoliv nastavení jsou atributy prázdne AttributeType::EMPTY<br>
+    auto it = programs.find(prg);
+    if (it != programs.end()) {
+        it->second.types[attrib] = type;
+    }
 }
 
 /**
@@ -331,6 +396,10 @@ void             GPU::setVS2FSType          (ProgramID prg,uint32_t attrib,Attri
  */
 void             GPU::useProgram            (ProgramID prg){
   /// \todo tato funkce by měla vybrat aktivní shader program.
+    auto it = programs.find(prg);
+    if (it != programs.end()) {
+        currProgram = it->first;
+    }
 }
 
 /**
@@ -343,7 +412,9 @@ void             GPU::useProgram            (ProgramID prg){
 bool             GPU::isProgram             (ProgramID prg){
   /// \todo tato funkce by měla zjistit, zda daný program existuje.<br>
   /// Funkce vráti true, pokud program existuje.<br>
-  return false;
+    auto it = programs.find(prg);
+    if (it != programs.end()) return true;
+    else return false;
 }
 
 /**
@@ -358,6 +429,10 @@ void             GPU::programUniform1f      (ProgramID prg,uint32_t uniformId,fl
   /// Parametr "prg" vybírá shader program.<br>
   /// Parametr "uniformId" vybírá uniformní proměnnou. Maximální počet uniformních proměnných je uložen v programné \link maxUniforms \endlink.<br>
   /// Parametr "d" obsahuje data (1 float).<br>
+    auto it = programs.find(prg);
+    if (it != programs.end()) {
+        it->second.uniforms.uniform[uniformId].v1 = d;
+    }
 }
 
 /**
@@ -370,6 +445,10 @@ void             GPU::programUniform1f      (ProgramID prg,uint32_t uniformId,fl
 void             GPU::programUniform2f      (ProgramID prg,uint32_t uniformId,glm::vec2 const&d){
   /// \todo tato funkce dělá obdobnou věc jako funkce programUniform1f.<br>
   /// Místo 1 floatu nahrává 2 floaty.
+    auto it = programs.find(prg);
+    if (it != programs.end()) {
+        it->second.uniforms.uniform[uniformId].v2 = d;
+    }
 }
 
 /**
@@ -382,6 +461,10 @@ void             GPU::programUniform2f      (ProgramID prg,uint32_t uniformId,gl
 void             GPU::programUniform3f      (ProgramID prg,uint32_t uniformId,glm::vec3 const&d){
   /// \todo tato funkce dělá obdobnou věc jako funkce programUniform1f.<br>
   /// Místo 1 floatu nahrává 3 floaty.
+    auto it = programs.find(prg);
+    if (it != programs.end()) {
+        it->second.uniforms.uniform[uniformId].v3 = d;
+    }
 }
 
 /**
@@ -394,6 +477,10 @@ void             GPU::programUniform3f      (ProgramID prg,uint32_t uniformId,gl
 void             GPU::programUniform4f      (ProgramID prg,uint32_t uniformId,glm::vec4 const&d){
   /// \todo tato funkce dělá obdobnou věc jako funkce programUniform1f.<br>
   /// Místo 1 floatu nahrává 4 floaty.
+    auto it = programs.find(prg);
+    if (it != programs.end()) {
+        it->second.uniforms.uniform[uniformId].v4 = d;
+    }
 }
 
 /**
@@ -406,6 +493,10 @@ void             GPU::programUniform4f      (ProgramID prg,uint32_t uniformId,gl
 void             GPU::programUniformMatrix4f(ProgramID prg,uint32_t uniformId,glm::mat4 const&d){
   /// \todo tato funkce dělá obdobnou věc jako funkce programUniform1f.<br>
   /// Místo 1 floatu nahrává matici 4x4 (16 floatů).
+    auto it = programs.find(prg);
+    if (it != programs.end()) {
+        it->second.uniforms.uniform[uniformId].m4 = d;
+    }
 }
 
 /// @}
