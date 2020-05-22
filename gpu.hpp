@@ -140,10 +140,6 @@ class GPU{
             width = new_width;
             height = new_height;
         }
-        ~FrameBuffer() {
-            delete color_buffer;
-            delete depth_buffer;
-        }
     };
     FrameBuffer* currFrameBuffer;
     /// @}

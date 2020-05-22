@@ -609,6 +609,55 @@ void            GPU::clear                 (float r,float g,float b,float a){
   /// (0,0,0) - černá barva, (1,1,1) - bílá barva.<br>
   /// Hloubkový buffer nastaví na takovou hodnotu, která umožní rasterizaci trojúhelníka, který leží v rámci pohledového tělesa.<br>
   /// Hloubka by měla být tedy větší než maximální hloubka v NDC (normalized device coordinates).<br>
+    //TODO co s cisly mezi (0,1)??
+    
+    uint8_t* color = getFramebufferColor();
+    float* depth = getFramebufferDepth();
+
+    uint64_t max = (uint64_t) getFramebufferHeight() * (uint64_t) getFramebufferWidth();
+
+    for (int i = 0; i < max; i++) {
+        depth[i] = 2;
+    }
+
+    uint8_t red, green, blue, alpha;
+    if (r <= 0) red = 0;
+    else if (r >= 1) red = 255;
+    else red = r * 255;
+
+    if (g <= 0) green = 0;
+    else if (g >= 1) green = 255;
+    else green = g * 255;
+
+    if (b <= 0) blue = 0;
+    else if (b >= 1) blue = 255;
+    else blue = b * 255;
+
+    if (a <= 0) alpha = 0;
+    else if (a >= 1) alpha = 255;
+    else alpha = a * 255;
+
+    max *= 4; //max pro color buffer
+    int order = 0;
+
+    for (int i = 0; i < max; i++) {
+        if (order == 0) {
+            color[i] = red;
+            order++;
+        }
+        else if (order == 1) {
+            color[i] = green;
+            order++;
+        }
+        else if (order == 2) {
+            color[i] = blue;
+            order++;
+        }
+        else {
+            color[i] = alpha;
+            order = 0;
+        }
+    }
 }
 
 
