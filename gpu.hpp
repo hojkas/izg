@@ -100,7 +100,7 @@ class GPU{
         }
     };
     std::map<VertexPullerID, VertexPuller> vertexPullers;
-    VertexPullerID currVertexPuller;
+    VertexPuller* currVertexPuller;
     //program
     struct Program {
         VertexShader vertex_shader;
@@ -142,6 +142,10 @@ class GPU{
         }
     };
     FrameBuffer* currFrameBuffer;
+    
+    //DrawTriangles
+    InVertex fetchInVertex();
+
     /// @}
 };
 

@@ -18,7 +18,7 @@
 GPU::GPU(){
   /// \todo Zde můžete alokovat/inicializovat potřebné proměnné grafické karty
     nextFreeID = 0;
-    currVertexPuller = emptyID;
+    currVertexPuller = nullptr;
     currProgram = emptyID;
     currFrameBuffer = nullptr;
 }
@@ -277,9 +277,9 @@ void     GPU::bindVertexPuller       (VertexPullerID vao){
   /// Pokud je daný vertex puller aktivován, atributy z bufferů jsou vybírány na základě jeho nastavení.<br>
     auto it = vertexPullers.find(vao);
     if (it != vertexPullers.end()) {
-        currVertexPuller = vao;
+        currVertexPuller = &vertexPullers[vao];
     }
-    else currVertexPuller = emptyID;
+    else currVertexPuller = nullptr;
 }
 
 /**
@@ -288,7 +288,7 @@ void     GPU::bindVertexPuller       (VertexPullerID vao){
 void     GPU::unbindVertexPuller     (){
   /// \todo Tato funkce deaktivuje vertex puller.
   /// To většinou znamená, že se vybere neexistující "emptyID" vertex puller.
-    currVertexPuller = emptyID;
+    currVertexPuller = nullptr;
 }
 
 /**
@@ -660,7 +660,42 @@ void            GPU::clear                 (float r,float g,float b,float a){
     }
 }
 
+InVertex GPU::fetchInVertex() {
+    InVertex iv;
+    if (currVertexPuller->indexing) {
 
+    }
+    else {
+        //not indexing
+        static uint32_t nonIndexID = 0;
+        iv.gl_VertexID = nonIndexID;
+        nonIndexID++;
+
+        for (int i = 0; i < maxAttributes; i++) {
+            Head* head = &currVertexPuller->heads[i];
+            if (head->enabled) {
+                if (!isBuffer(head->buffer)) continue;
+                void* data;
+                if (head->type == AttributeType::FLOAT) {
+                    getBufferData(head->buffer, head->offset, sizeof(float), data);
+                    iv.attributes[i].v1 = *(float*) data;
+                    printf("%f\n", iv.attributes[i]);
+                }
+                else if (head->type == AttributeType::VEC2) {
+
+                }
+                else if (head->type == AttributeType::VEC3) {
+
+                }
+                else if (head->type == AttributeType::VEC4) {
+
+                }
+                //EMPTY type ommited
+            }
+        }
+    }
+    return iv;
+}
 
 void            GPU::drawTriangles         (uint32_t  nofVertices){
   /// \todo Tato funkce vykreslí trojúhelníky podle daného nastavení.<br>
@@ -668,14 +703,16 @@ void            GPU::drawTriangles         (uint32_t  nofVertices){
   /// Vertex shader a fragment shader se zvolí podle aktivního shader programu (pomocí useProgram).<br>
   /// Parametr "nofVertices" obsahuje počet vrcholů, který by se měl vykreslit (3 pro jeden trojúhelník).<br>
 
-    bindVertexPuller(currVertexPuller);
+    //doesn't make sense to bind it? TODO
+    //bindVertexPuller(currVertexPuller);
     
-    printf("nofVertices: %d\n", nofVertices);
+    InVertex invs[3];
+
 
     
 
 
-    unbindVertexPuller();
+    //unbindVertexPuller();
 }
 
 /// @}
