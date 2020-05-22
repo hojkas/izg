@@ -673,24 +673,36 @@ InVertex GPU::fetchInVertex() {
 
         for (int i = 0; i < maxAttributes; i++) {
             Head* head = &currVertexPuller->heads[i];
+
             if (head->enabled) {
+
                 if (!isBuffer(head->buffer)) continue;
-                void* data;
+
+                void* data = malloc(sizeof(glm::vec4));
+                uint32_t offset = head->offset + head->stride * iv.gl_VertexID;
+
                 if (head->type == AttributeType::FLOAT) {
-                    getBufferData(head->buffer, head->offset, sizeof(float), data);
+                    getBufferData(head->buffer, offset, sizeof(float), data);
                     iv.attributes[i].v1 = *(float*) data;
-                    printf("%f\n", iv.attributes[i]);
+                    printf("%f\n", iv.attributes[i].v1);
                 }
                 else if (head->type == AttributeType::VEC2) {
-
+                    getBufferData(head->buffer, offset, sizeof(glm::vec2), data);
+                    iv.attributes[i].v2 = *(glm::vec2*) data;
+                    //printf("%f\n", *(float*)data);
+                    printf("X: %f\nY: %f\n\n", iv.attributes[i].v2.x, iv.attributes[i].v2.y);
                 }
                 else if (head->type == AttributeType::VEC3) {
-
+                    getBufferData(head->buffer, offset, sizeof(glm::vec3), data);
+                    iv.attributes[i].v3 = *(glm::vec3*)data;
+                    //printf("X: %f\nY: %f\nZ: %f\n\n", iv.attributes[i].v3.x, iv.attributes[i].v3.y, iv.attributes[i].v3.z);
                 }
                 else if (head->type == AttributeType::VEC4) {
-
+                    getBufferData(head->buffer, offset, sizeof(glm::vec4), data);
+                    iv.attributes[i].v4 = *(glm::vec4*)data;
                 }
                 //EMPTY type ommited
+                free(data);
             }
         }
     }
@@ -706,7 +718,7 @@ void            GPU::drawTriangles         (uint32_t  nofVertices){
     //doesn't make sense to bind it? TODO
     //bindVertexPuller(currVertexPuller);
     
-    InVertex invs[3];
+    InVertex invs = fetchInVertex();
 
 
     
