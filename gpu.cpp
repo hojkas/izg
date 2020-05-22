@@ -660,52 +660,69 @@ void            GPU::clear                 (float r,float g,float b,float a){
     }
 }
 
-InVertex GPU::fetchInVertex() {
+/* @brief Function extracts and returns one InVertex from currVertexPuller settings.
+   @param timesCalled used as index in index mode, as id in non-index
+   @return Extracted InVertex.
+ */
+InVertex GPU::fetchInVertex(uint32_t timesCalled) {
     InVertex iv;
     if (currVertexPuller->indexing) {
-
+        //indexing
+        void* data = malloc(sizeof(uint32_t));
+        if (currVertexPuller->index_type == IndexType::UINT8) {
+            getBufferData(currVertexPuller->index_buffer, timesCalled * sizeof(uint8_t), sizeof(uint8_t), data);
+            iv.gl_VertexID = *(uint8_t*)data;
+        }
+        else if (currVertexPuller->index_type == IndexType::UINT16) {
+            getBufferData(currVertexPuller->index_buffer, timesCalled * sizeof(uint16_t), sizeof(uint16_t), data);
+            iv.gl_VertexID = *(uint16_t*)data;
+        }
+        else {
+            //indextype::UINT32
+            getBufferData(currVertexPuller->index_buffer, timesCalled * sizeof(uint32_t), sizeof(uint32_t), data);
+            iv.gl_VertexID = *(uint32_t*)data;
+        }
     }
     else {
         //not indexing
-        static uint32_t nonIndexID = 0;
-        iv.gl_VertexID = nonIndexID;
-        nonIndexID++;
+        iv.gl_VertexID = timesCalled;
+    }
 
-        for (int i = 0; i < maxAttributes; i++) {
-            Head* head = &currVertexPuller->heads[i];
+    for (int i = 0; i < maxAttributes; i++) {
+        Head* head = &currVertexPuller->heads[i];
 
-            if (head->enabled) {
+        if (head->enabled) {
 
-                if (!isBuffer(head->buffer)) continue;
+            if (!isBuffer(head->buffer)) continue;
 
-                void* data = malloc(sizeof(glm::vec4));
-                uint32_t offset = head->offset + head->stride * iv.gl_VertexID;
+            void* data = malloc(sizeof(glm::vec4));
+            uint32_t offset = head->offset + head->stride * iv.gl_VertexID;
 
-                if (head->type == AttributeType::FLOAT) {
-                    getBufferData(head->buffer, offset, sizeof(float), data);
-                    iv.attributes[i].v1 = *(float*) data;
-                    printf("%f\n", iv.attributes[i].v1);
-                }
-                else if (head->type == AttributeType::VEC2) {
-                    getBufferData(head->buffer, offset, sizeof(glm::vec2), data);
-                    iv.attributes[i].v2 = *(glm::vec2*) data;
-                    //printf("%f\n", *(float*)data);
-                    printf("X: %f\nY: %f\n\n", iv.attributes[i].v2.x, iv.attributes[i].v2.y);
-                }
-                else if (head->type == AttributeType::VEC3) {
-                    getBufferData(head->buffer, offset, sizeof(glm::vec3), data);
-                    iv.attributes[i].v3 = *(glm::vec3*)data;
-                    //printf("X: %f\nY: %f\nZ: %f\n\n", iv.attributes[i].v3.x, iv.attributes[i].v3.y, iv.attributes[i].v3.z);
-                }
-                else if (head->type == AttributeType::VEC4) {
-                    getBufferData(head->buffer, offset, sizeof(glm::vec4), data);
-                    iv.attributes[i].v4 = *(glm::vec4*)data;
-                }
-                //EMPTY type ommited
-                free(data);
+            if (head->type == AttributeType::FLOAT) {
+                getBufferData(head->buffer, offset, sizeof(float), data);
+                iv.attributes[i].v1 = *(float*)data;
+                printf("%f\n", iv.attributes[i].v1);
             }
+            else if (head->type == AttributeType::VEC2) {
+                getBufferData(head->buffer, offset, sizeof(glm::vec2), data);
+                iv.attributes[i].v2 = *(glm::vec2*) data;
+                //printf("%f\n", *(float*)data);
+                //printf("X: %f\nY: %f\n\n", iv.attributes[i].v2.x, iv.attributes[i].v2.y);
+            }
+            else if (head->type == AttributeType::VEC3) {
+                getBufferData(head->buffer, offset, sizeof(glm::vec3), data);
+                iv.attributes[i].v3 = *(glm::vec3*)data;
+                //printf("X: %f\nY: %f\nZ: %f\n\n", iv.attributes[i].v3.x, iv.attributes[i].v3.y, iv.attributes[i].v3.z);
+            }
+            else if (head->type == AttributeType::VEC4) {
+                getBufferData(head->buffer, offset, sizeof(glm::vec4), data);
+                iv.attributes[i].v4 = *(glm::vec4*)data;
+            }
+            //EMPTY type ommited
+            free(data);
         }
     }
+    
     return iv;
 }
 
@@ -718,7 +735,10 @@ void            GPU::drawTriangles         (uint32_t  nofVertices){
     //doesn't make sense to bind it? TODO
     //bindVertexPuller(currVertexPuller);
     
-    InVertex invs = fetchInVertex();
+    //as indexing mode doesn't change between function, timesCalled is used as index to
+    //index buffer at each call or as ID in non-indexing mode
+    uint32_t timesCalled = 0;
+    InVertex invs = fetchInVertex(timesCalled);
 
 
     

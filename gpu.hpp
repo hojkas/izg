@@ -144,7 +144,7 @@ class GPU{
     FrameBuffer* currFrameBuffer;
     
     //DrawTriangles
-    InVertex fetchInVertex();
+    InVertex fetchInVertex(uint32_t);
 
     /// @}
 };
