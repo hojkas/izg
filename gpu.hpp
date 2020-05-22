@@ -121,6 +121,31 @@ class GPU{
     };
     std::map<ProgramID, Program> programs;
     ProgramID currProgram;
+    //framebuffer
+    //TODO shouldn't be in header, but kinda didn't work outside
+    struct FrameBuffer {
+        uint32_t width;
+        uint32_t height;
+        std::vector<uint8_t>* color_buffer;
+        std::vector<float>* depth_buffer;
+        FrameBuffer() {
+            width = 0;
+            height = 0;
+            color_buffer = nullptr;
+            depth_buffer = nullptr;
+        }
+        void FrameBuffer::set_up(uint32_t new_width, uint32_t new_height) {
+            color_buffer = new std::vector<uint8_t>(size_t((uint64_t)new_width * (uint64_t)new_height * 4));
+            depth_buffer = new std::vector<float>(size_t((uint64_t)new_width * (uint64_t)new_height));
+            width = new_width;
+            height = new_height;
+        }
+        ~FrameBuffer() {
+            delete color_buffer;
+            delete depth_buffer;
+        }
+    };
+    FrameBuffer* currFrameBuffer;
     /// @}
 };
 

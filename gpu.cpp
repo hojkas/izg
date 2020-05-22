@@ -20,6 +20,7 @@ GPU::GPU(){
     nextFreeID = 0;
     currVertexPuller = emptyID;
     currProgram = emptyID;
+    currFrameBuffer = nullptr;
 }
 
 /**
@@ -502,9 +503,6 @@ void             GPU::programUniformMatrix4f(ProgramID prg,uint32_t uniformId,gl
 /// @}
 
 
-
-
-
 /** \addtogroup framebuffer_tasks 04. Implementace obslužných funkcí pro framebuffer
  * @{
  */
@@ -521,7 +519,9 @@ void GPU::createFramebuffer      (uint32_t width,uint32_t height){
   /// Buffery obsahují width x height pixelů.<br>
   /// Barevný pixel je složen z 4 x uint8_t hodnot - to reprezentuje RGBA barvu.<br>
   /// Hloubkový pixel obsahuje 1 x float - to reprezentuje hloubku.<br>
-  /// Nultý pixel framebufferu je vlevo dole.<br>
+  /// Nultý pixel framebufferu je vlevo dole.
+    currFrameBuffer = new FrameBuffer();
+    currFrameBuffer->set_up(width, height);
 }
 
 /**
@@ -529,6 +529,7 @@ void GPU::createFramebuffer      (uint32_t width,uint32_t height){
  */
 void GPU::deleteFramebuffer      (){
   /// \todo tato funkce by měla dealokovat framebuffer.
+    delete currFrameBuffer;
 }
 
 /**
@@ -539,6 +540,10 @@ void GPU::deleteFramebuffer      (){
  */
 void     GPU::resizeFramebuffer(uint32_t width,uint32_t height){
   /// \todo Tato funkce by měla změnit velikost framebuffer.
+    currFrameBuffer->color_buffer->resize(size_t((uint64_t)width * (uint64_t)height * 4));
+    currFrameBuffer->depth_buffer->resize(size_t((uint64_t)width * (uint64_t)height));
+    currFrameBuffer->width = width;
+    currFrameBuffer->height = height;
 }
 
 /**
@@ -548,7 +553,7 @@ void     GPU::resizeFramebuffer(uint32_t width,uint32_t height){
  */
 uint8_t* GPU::getFramebufferColor  (){
   /// \todo Tato funkce by měla vrátit ukazatel na začátek barevného bufferu.<br>
-  return nullptr;
+    return currFrameBuffer->color_buffer->data();
 }
 
 /**
@@ -558,7 +563,7 @@ uint8_t* GPU::getFramebufferColor  (){
  */
 float* GPU::getFramebufferDepth    (){
   /// \todo tato funkce by mla vrátit ukazatel na začátek hloubkového bufferu.<br>
-  return nullptr;
+    return currFrameBuffer->depth_buffer->data();
 }
 
 /**
@@ -568,7 +573,8 @@ float* GPU::getFramebufferDepth    (){
  */
 uint32_t GPU::getFramebufferWidth (){
   /// \todo Tato funkce by měla vrátit šířku framebufferu.
-  return 0;
+    if (currFrameBuffer == nullptr) return 0;
+    return currFrameBuffer->width;
 }
 
 /**
@@ -578,7 +584,8 @@ uint32_t GPU::getFramebufferWidth (){
  */
 uint32_t GPU::getFramebufferHeight(){
   /// \todo Tato funkce by měla vrátit výšku framebufferu.
-  return 0;
+    if (currFrameBuffer == nullptr) return 0;
+    return currFrameBuffer->height;
 }
 
 /// @}
