@@ -667,6 +667,15 @@ void            GPU::drawTriangles         (uint32_t  nofVertices){
   /// Vrcholy se budou vybírat podle nastavení z aktivního vertex pulleru (pomocí bindVertexPuller).<br>
   /// Vertex shader a fragment shader se zvolí podle aktivního shader programu (pomocí useProgram).<br>
   /// Parametr "nofVertices" obsahuje počet vrcholů, který by se měl vykreslit (3 pro jeden trojúhelník).<br>
+
+    bindVertexPuller(currVertexPuller);
+    
+    printf("nofVertices: %d\n", nofVertices);
+
+    
+
+
+    unbindVertexPuller();
 }
 
 /// @}
