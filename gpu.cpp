@@ -19,7 +19,7 @@ GPU::GPU(){
   /// \todo Zde můžete alokovat/inicializovat potřebné proměnné grafické karty
     nextFreeID = 0;
     currVertexPuller = nullptr;
-    currProgram = emptyID;
+    currProgram = nullptr;
     currFrameBuffer = nullptr;
 }
 
@@ -399,7 +399,7 @@ void             GPU::useProgram            (ProgramID prg){
   /// \todo tato funkce by měla vybrat aktivní shader program.
     auto it = programs.find(prg);
     if (it != programs.end()) {
-        currProgram = it->first;
+        currProgram = &(it->second);
     }
 }
 
@@ -701,7 +701,7 @@ InVertex GPU::fetchInVertex(uint32_t timesCalled) {
             if (head->type == AttributeType::FLOAT) {
                 getBufferData(head->buffer, offset, sizeof(float), data);
                 iv.attributes[i].v1 = *(float*)data;
-                printf("%f\n", iv.attributes[i].v1);
+                //printf("%f\n", iv.attributes[i].v1);
             }
             else if (head->type == AttributeType::VEC2) {
                 getBufferData(head->buffer, offset, sizeof(glm::vec2), data);
@@ -731,20 +731,22 @@ void            GPU::drawTriangles         (uint32_t  nofVertices){
   /// Vrcholy se budou vybírat podle nastavení z aktivního vertex pulleru (pomocí bindVertexPuller).<br>
   /// Vertex shader a fragment shader se zvolí podle aktivního shader programu (pomocí useProgram).<br>
   /// Parametr "nofVertices" obsahuje počet vrcholů, který by se měl vykreslit (3 pro jeden trojúhelník).<br>
-
-    //doesn't make sense to bind it? TODO
-    //bindVertexPuller(currVertexPuller);
     
-    //as indexing mode doesn't change between function, timesCalled is used as index to
+    //as indexing mode doesn't change between function, i is also used as index to
     //index buffer at each call or as ID in non-indexing mode
-    uint32_t timesCalled = 0;
-    InVertex invs = fetchInVertex(timesCalled);
+
+    for (int i = 0; i < nofVertices; i++) {
+        InVertex inv = fetchInVertex(i);
+        OutVertex outv;
+        currProgram->vertex_shader(outv, inv, currProgram->uniforms);
+    }
+
+
 
 
     
 
 
-    //unbindVertexPuller();
 }
 
 /// @}

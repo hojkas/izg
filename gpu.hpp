@@ -120,7 +120,7 @@ class GPU{
         }
     };
     std::map<ProgramID, Program> programs;
-    ProgramID currProgram;
+    Program* currProgram;
     //framebuffer
     //TODO shouldn't be in header, but kinda didn't work outside
     struct FrameBuffer {
