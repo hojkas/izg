@@ -10,6 +10,8 @@
 #include <vector>
 #include <map>
 #include <list>
+#include <math.h>
+#include <algorithm>
 
 using bufferIT = std::map<BufferID, std::vector<uint8_t>>::iterator;
 
@@ -147,12 +149,19 @@ class GPU{
     InVertex fetchInVertex(uint32_t);
     struct Triangle {
         OutVertex point[3];
-
+        bool valid;
+        Triangle() {
+            valid = true;
+        }
     };
     std::list<Triangle*> triangles;
-    void clipNearPlane(std::list<Triangle*>::iterator it);
-    void clipFarPlane(std::list<Triangle*>::iterator it);
+    void clipPlane(std::list<Triangle*>::iterator it);
+    //std::list<InFragment> infrags;
+    void createFragments(Triangle*);
+    void createFragment(Triangle*, float, float);
+    void interpolate(InFragment*, Triangle*);
 
+    void debugTriangles();
     /// @}
 };
 

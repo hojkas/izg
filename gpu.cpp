@@ -726,13 +726,15 @@ InVertex GPU::fetchInVertex(uint32_t timesCalled) {
     return iv;
 }
 
-void GPU::clipNearPlane(std::list<Triangle*>::iterator it) {
+void GPU::clipPlane(std::list<Triangle*>::iterator it) {
     Triangle* t = (*it);
     OutVertex* a = &(t->point[0]);
     OutVertex* b = &(t->point[1]);
     OutVertex* c = &(t->point[2]);
 
+    //near plane
     bool a_out, b_out, c_out;
+    bool no_new = true;
     if (-a->gl_Position.w <= a->gl_Position.x && -a->gl_Position.w <= a->gl_Position.y && -a->gl_Position.w <= a->gl_Position.z) a_out = false;
     else a_out = true;
     if (-b->gl_Position.w <= b->gl_Position.x && -b->gl_Position.w <= b->gl_Position.y && -b->gl_Position.w <= b->gl_Position.z) b_out = false;
@@ -743,31 +745,152 @@ void GPU::clipNearPlane(std::list<Triangle*>::iterator it) {
     int out_cnt = a_out + b_out + c_out;
     if (out_cnt > 2) {
         //all out, whole triagle gets thrown out
+        t->valid = false;
+        return;
     }
     else if (out_cnt == 2) {
         //two points out of clipping space
+        //TODO
     }
     else if (out_cnt == 1) {
         //one point out of clipping space
+        //TODO
+    }
+    //if no point is out, nothing happens
+
+    //far plane
+    if (no_new) {
+        //no clipping done so we can use original vertexes
+        if (a->gl_Position.w >= a->gl_Position.x && a->gl_Position.w >= a->gl_Position.y && a->gl_Position.w >= a->gl_Position.z) a_out = false;
+        else a_out = true;
+        if (b->gl_Position.w >= b->gl_Position.x && b->gl_Position.w >= b->gl_Position.y && b->gl_Position.w >= b->gl_Position.z) b_out = false;
+        else b_out = true;
+        if (c->gl_Position.w >= c->gl_Position.x && c->gl_Position.w >= c->gl_Position.y && c->gl_Position.w >= c->gl_Position.z) c_out = false;
+        else c_out = true;
+    }
+    else {
+        //TODO figure out bools differently
+    }
+
+    out_cnt = a_out + b_out + c_out;
+    if (out_cnt > 2) {
+        t->valid = false;
+    }
+    else if (out_cnt == 2) {
+        //two points out of clipping space
+        //TODO
+    }
+    else if (out_cnt == 1) {
+        //one point out of clipping space
+        //TODO
     }
     //if no point is out, nothing happens
 }
 
-void GPU::clipFarPlane(std::list<Triangle*>::iterator it) {
-    Triangle* t = (*it);
-    OutVertex* a = &(t->point[0]);
-    OutVertex* b = &(t->point[1]);
-    OutVertex* c = &(t->point[2]);
+void GPU::interpolate(InFragment* inF, Triangle*) {
 
-    bool a_out, b_out, c_out;
-    if (a->gl_Position.w >= a->gl_Position.x && a->gl_Position.w >= a->gl_Position.y && a->gl_Position.w >= a->gl_Position.z) a_out = false;
-    else a_out = true;
-    if (b->gl_Position.w >= b->gl_Position.x && b->gl_Position.w >= b->gl_Position.y && b->gl_Position.w >= b->gl_Position.z) b_out = false;
-    else b_out = true;
-    if (c->gl_Position.w >= c->gl_Position.x && c->gl_Position.w >= c->gl_Position.y && c->gl_Position.w >= c->gl_Position.z) c_out = false;
-    else c_out = true;
+}
 
+void GPU::createFragment(Triangle* t, float x, float y) {
+    uint8_t* buffer = getFramebufferColor();
+    uint32_t ix = (uint32_t)std::floor(x);
+    uint32_t iy = (uint32_t)std::floor(y);
+    InFragment inF;
+    inF.gl_FragCoord.x = x;
+    inF.gl_FragCoord.y = y;
+    interpolate(&inF, t);
+    //TODO call fragment shader here
     
+    /* temp draw
+    buffer[iy * currFrameBuffer->width * 4 + ix * 4] = 255;
+    buffer[iy * currFrameBuffer->width * 4 + ix * 4 + 1] = 255;
+    buffer[iy * currFrameBuffer->width * 4 + ix * 4 + 2] = 255;
+    */
+}
+
+void GPU::createFragments(Triangle* t) {
+    uint32_t width = getFramebufferWidth();
+    uint32_t height = getFramebufferHeight();
+
+    glm::vec4* a = &(t->point[0].gl_Position);
+    glm::vec4* b = &(t->point[1].gl_Position);
+    glm::vec4* c = &(t->point[2].gl_Position);
+
+    uint32_t minX = (uint32_t) std::max(std::min(std::min(std::floor(a->x), std::floor(b->x)), std::floor(c->x)), 0.f);
+    uint32_t minY = (uint32_t) std::max(std::min(std::min(std::floor(a->y), std::floor(b->y)), std::floor(c->y)), 0.f);
+    uint32_t maxX = std::min(width, (uint32_t) std::max(std::ceil(a->x), std::max(std::ceil(b->x), std::ceil(c->x))));
+    uint32_t maxY = std::min(width, (uint32_t) std::max(std::ceil(a->y), std::max(std::ceil(b->y), std::ceil(c->y))));
+
+    float abdely = b->y - a->y;
+    float abdelx = b->x - a->x;
+    float bcdely = c->y - b->y;
+    float bcdelx = c->x - b->x;
+    float cadely = a->y - c->y;
+    float cadelx = a->x - c->x;
+
+    //This is the worst, stupid slow version, because faster didn't work
+    float abfunc, bcfunc, cafunc;
+    for (float x = (float)minX + 0.5f; x < maxX; x += 1.f) {
+        for (float y = (float)minY + 0.5f; y < maxY; y += 1.f) {
+            abfunc = (x - a->x) * abdely - (y - a->y) * abdelx;
+            bcfunc = (x - b->x) * bcdely - (y - b->y) * bcdelx;
+            cafunc = (x - c->x) * cadely - (y - c->y) * cadelx;
+            if (abfunc < 0 && bcfunc < 0 && cafunc < 0) createFragment(t, x, y);
+            else if (abfunc >= 0 && bcfunc >= 0 && cafunc >= 0) createFragment(t, x, y);
+        }
+    }
+    return;
+
+    /* Fas version that doesn't work
+    bool first = true;
+    bool first_on_line = true;
+    bool left_to_right = true;
+
+    for (float x = (float)minX + 0.5f; x < maxX; x += 1.f) {
+        if (left_to_right) {
+            first_on_line = true;
+            for (float y = (float)minY + 0.5f; y < maxY; y += 1.f) {
+                if (first) {
+                    first = false;
+                    first_on_line = false;
+                    abfunc = (x - a->x) * abdely - (y - a->y) * abdelx;
+                    bcfunc = (x - b->x) * bcdely - (y - b->y) * bcdelx;
+                    cafunc = (x - c->x) * cadely - (y - c->y) * cadelx;
+                }
+                else if (first_on_line) {
+                    first_on_line = false;
+                    abfunc += abdely;
+                    bcfunc += bcdely;
+                    cafunc += cadely;
+                }
+                else {
+                    abfunc += abdelx;
+                    bcfunc += bcdelx;
+                    cafunc += cadelx;
+                }
+                if (abfunc >= 0 && bcfunc >= 0 && cafunc >= 0) createFragment(t, x, y);
+            }
+            left_to_right = false;
+        }
+        else {
+            first_on_line = true;
+            for (float y = (float)maxY - 0.5f; y > maxY; y -= 1.f) {
+                if (first_on_line) {
+                    first_on_line = false;
+                    abfunc += abdely;
+                    bcfunc += bcdely;
+                    cafunc += cadely;
+                }
+                else {
+                    abfunc -= abdelx;
+                    bcfunc -= bcdelx;
+                    cafunc -= cadelx;
+                }
+                if (abfunc >= 0 && bcfunc >= 0 && cafunc >= 0) createFragment(t, x, y);
+            }
+            left_to_right = true;
+        }
+    }*/
 }
 
 void            GPU::drawTriangles         (uint32_t  nofVertices){
@@ -779,8 +902,9 @@ void            GPU::drawTriangles         (uint32_t  nofVertices){
     //buffers -> 2D graphics (unclipped triangles)
     //as indexing mode doesn't change between function, i is also used as index to
     //index buffer at each call or as ID in non-indexing mode
+    triangles.clear();
     int n = 0;
-    for (int i = 0; i < nofVertices; i++) {
+    for (uint32_t i = 0; i < nofVertices; i++) {
         InVertex inv = fetchInVertex(i);
         Triangle t;
         currProgram->vertex_shader(t.point[n], inv, currProgram->uniforms);
@@ -792,22 +916,87 @@ void            GPU::drawTriangles         (uint32_t  nofVertices){
         }
     }
 
+    //printf("START\n\n");
+    //debugTriangles();
+
     //at this point, there is list with Triangles, each of three OutVertexes
     //clipping here TODO
     //triangle.gl_position.w -> clip space
 
     for (auto it = triangles.begin(); it != triangles.end(); it++) {
-        //near clipping
-        clipNearPlane(it);
-        //far clipping
-        clipFarPlane(it);
+        clipPlane(it);
+        if (!(*it)->valid) it = triangles.erase(it);
+        if (it == triangles.end()) break;
     }
 
-    
+    //reshaping to normalized
+    for (Triangle* t : triangles) {
+        t->point[0].gl_Position.x /= t->point[0].gl_Position.w;
+        t->point[0].gl_Position.y /= t->point[0].gl_Position.w;
+        t->point[0].gl_Position.z /= t->point[0].gl_Position.w;
 
-    
+        t->point[1].gl_Position.x /= t->point[1].gl_Position.w;
+        t->point[1].gl_Position.y /= t->point[1].gl_Position.w;
+        t->point[1].gl_Position.z /= t->point[1].gl_Position.w;
+
+        t->point[2].gl_Position.x /= t->point[2].gl_Position.w;
+        t->point[2].gl_Position.y /= t->point[2].gl_Position.w;
+        t->point[2].gl_Position.z /= t->point[2].gl_Position.w;
+    }
+
+    uint32_t width = currFrameBuffer->width;
+    uint32_t height = currFrameBuffer->height;
+
+    //resizing to screen size
+    for (Triangle* t : triangles) {
+        t->point[0].gl_Position.x = (t->point[0].gl_Position.x + 1.f) / 2.f * width;
+        t->point[0].gl_Position.y = (t->point[0].gl_Position.y + 1.f) / 2.f * height;
+        t->point[1].gl_Position.x = (t->point[1].gl_Position.x + 1.f) / 2.f * width;
+        t->point[1].gl_Position.y = (t->point[1].gl_Position.y + 1.f) / 2.f * height;
+        t->point[2].gl_Position.x = (t->point[2].gl_Position.x + 1.f) / 2.f * width;
+        t->point[2].gl_Position.y = (t->point[2].gl_Position.y + 1.f) / 2.f * height;
+    }
+
+    for (Triangle* t : triangles) createFragments(t);
 
 
+    /* //draw test 
+    uint8_t* cb = getFramebufferColor();
+    for (Triangle* t : triangles) {
+        for (int i = 0; i < 3; i++) {
+            float x = t->point[i].gl_Position.x;
+            float y = t->point[i].gl_Position.y;
+            uint64_t ix = (int)round(x);
+            uint64_t iy = (int)round(y);
+
+            //TODO czech flag still broken
+            if (iy > height || ix > width) {
+                continue;
+            }
+            if (iy == height) iy--;
+            if (ix == width) ix--;
+            cb[iy * width * 4 + ix * 4] = 255;
+            cb[iy * width * 4 + ix * 4 + 1] = 255;
+            cb[iy * width * 4 + ix * 4 + 2] = 255;
+        }
+    }*/
 }
 
 /// @}
+
+void GPU::debugTriangles() {
+    printf("Width: %d\nHeight: %d\n-----------\n\n", getFramebufferWidth(), getFramebufferHeight());
+    for (Triangle* t : triangles) {
+        for (int i = 0; i < 3; i++) {
+            printf("X: ");
+            printf("%f", t->point[i].gl_Position.x);
+            printf("\nY: ");
+            printf("%f", t->point[i].gl_Position.y);
+            printf("\nZ: ");
+            printf("%f", t->point[i].gl_Position.z);
+            printf("\nW: ");
+            printf("%f", t->point[i].gl_Position.w);
+            printf("\n\n");
+        }
+    }
+}
