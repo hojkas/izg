@@ -145,6 +145,13 @@ class GPU{
     
     //DrawTriangles
     InVertex fetchInVertex(uint32_t);
+    struct Triangle {
+        OutVertex point[3];
+
+    };
+    std::list<Triangle*> triangles;
+    void clipNearPlane(std::list<Triangle*>::iterator it);
+    void clipFarPlane(std::list<Triangle*>::iterator it);
 
     /// @}
 };

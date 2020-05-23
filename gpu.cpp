@@ -726,23 +726,84 @@ InVertex GPU::fetchInVertex(uint32_t timesCalled) {
     return iv;
 }
 
+void GPU::clipNearPlane(std::list<Triangle*>::iterator it) {
+    Triangle* t = (*it);
+    OutVertex* a = &(t->point[0]);
+    OutVertex* b = &(t->point[1]);
+    OutVertex* c = &(t->point[2]);
+
+    bool a_out, b_out, c_out;
+    if (-a->gl_Position.w <= a->gl_Position.x && -a->gl_Position.w <= a->gl_Position.y && -a->gl_Position.w <= a->gl_Position.z) a_out = false;
+    else a_out = true;
+    if (-b->gl_Position.w <= b->gl_Position.x && -b->gl_Position.w <= b->gl_Position.y && -b->gl_Position.w <= b->gl_Position.z) b_out = false;
+    else b_out = true;
+    if (-c->gl_Position.w <= c->gl_Position.x && -c->gl_Position.w <= c->gl_Position.y && -c->gl_Position.w <= c->gl_Position.z) c_out = false;
+    else c_out = true;
+
+    int out_cnt = a_out + b_out + c_out;
+    if (out_cnt > 2) {
+        //all out, whole triagle gets thrown out
+    }
+    else if (out_cnt == 2) {
+        //two points out of clipping space
+    }
+    else if (out_cnt == 1) {
+        //one point out of clipping space
+    }
+    //if no point is out, nothing happens
+}
+
+void GPU::clipFarPlane(std::list<Triangle*>::iterator it) {
+    Triangle* t = (*it);
+    OutVertex* a = &(t->point[0]);
+    OutVertex* b = &(t->point[1]);
+    OutVertex* c = &(t->point[2]);
+
+    bool a_out, b_out, c_out;
+    if (a->gl_Position.w >= a->gl_Position.x && a->gl_Position.w >= a->gl_Position.y && a->gl_Position.w >= a->gl_Position.z) a_out = false;
+    else a_out = true;
+    if (b->gl_Position.w >= b->gl_Position.x && b->gl_Position.w >= b->gl_Position.y && b->gl_Position.w >= b->gl_Position.z) b_out = false;
+    else b_out = true;
+    if (c->gl_Position.w >= c->gl_Position.x && c->gl_Position.w >= c->gl_Position.y && c->gl_Position.w >= c->gl_Position.z) c_out = false;
+    else c_out = true;
+
+    
+}
+
 void            GPU::drawTriangles         (uint32_t  nofVertices){
   /// \todo Tato funkce vykreslí trojúhelníky podle daného nastavení.<br>
   /// Vrcholy se budou vybírat podle nastavení z aktivního vertex pulleru (pomocí bindVertexPuller).<br>
   /// Vertex shader a fragment shader se zvolí podle aktivního shader programu (pomocí useProgram).<br>
   /// Parametr "nofVertices" obsahuje počet vrcholů, který by se měl vykreslit (3 pro jeden trojúhelník).<br>
     
+    //buffers -> 2D graphics (unclipped triangles)
     //as indexing mode doesn't change between function, i is also used as index to
     //index buffer at each call or as ID in non-indexing mode
-
+    int n = 0;
     for (int i = 0; i < nofVertices; i++) {
         InVertex inv = fetchInVertex(i);
-        OutVertex outv;
-        currProgram->vertex_shader(outv, inv, currProgram->uniforms);
+        Triangle t;
+        currProgram->vertex_shader(t.point[n], inv, currProgram->uniforms);
+        
+        if (n < 2) n++;
+        else {
+            n = 0;
+            triangles.push_back(&t); //pushes finished triangle to list
+        }
     }
 
+    //at this point, there is list with Triangles, each of three OutVertexes
+    //clipping here TODO
+    //triangle.gl_position.w -> clip space
 
+    for (auto it = triangles.begin(); it != triangles.end(); it++) {
+        //near clipping
+        clipNearPlane(it);
+        //far clipping
+        clipFarPlane(it);
+    }
 
+    
 
     
 
