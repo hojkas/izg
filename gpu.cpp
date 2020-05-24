@@ -664,28 +664,28 @@ void            GPU::clear                 (float r,float g,float b,float a){
    @param timesCalled used as index in index mode, as id in non-index
    @return Extracted InVertex.
  */
-InVertex GPU::fetchInVertex(uint32_t timesCalled) {
+InVertex GPU::fetchInVertex(uint32_t vertex_num) {
     InVertex iv;
     if (currVertexPuller->indexing) {
         //indexing
         void* data = calloc(1, sizeof(uint32_t));
         if (currVertexPuller->index_type == IndexType::UINT8) {
-            getBufferData(currVertexPuller->index_buffer, timesCalled * sizeof(uint8_t), sizeof(uint8_t), data);
+            getBufferData(currVertexPuller->index_buffer, vertex_num * sizeof(uint8_t), sizeof(uint8_t), data);
             iv.gl_VertexID = *(uint8_t*)data;
         }
         else if (currVertexPuller->index_type == IndexType::UINT16) {
-            getBufferData(currVertexPuller->index_buffer, timesCalled * sizeof(uint16_t), sizeof(uint16_t), data);
+            getBufferData(currVertexPuller->index_buffer, vertex_num * sizeof(uint16_t), sizeof(uint16_t), data);
             iv.gl_VertexID = *(uint16_t*)data;
         }
         else {
             //indextype::UINT32
-            getBufferData(currVertexPuller->index_buffer, timesCalled * sizeof(uint32_t), sizeof(uint32_t), data);
+            getBufferData(currVertexPuller->index_buffer, vertex_num * sizeof(uint32_t), sizeof(uint32_t), data);
             iv.gl_VertexID = *(uint32_t*)data;
         }
     }
     else {
         //not indexing
-        iv.gl_VertexID = timesCalled;
+        iv.gl_VertexID = vertex_num;
     }
 
     for (int i = 0; i < maxAttributes; i++) {
@@ -693,7 +693,7 @@ InVertex GPU::fetchInVertex(uint32_t timesCalled) {
 
         if (head->enabled) {
             
-            if (!isBuffer(head->buffer)) continue;
+            //if (!isBuffer(head->buffer)) continue;
 
             void* data = calloc(1, sizeof(glm::vec4));
             uint32_t offset = head->offset + head->stride * iv.gl_VertexID;
@@ -792,31 +792,51 @@ void GPU::interpolate(InFragment* inF, Triangle* t) {
     OutVertex b = t->point[1];
     OutVertex c = t->point[2];
 
-    Vector v0 = b - a, v1 = c - a, v2 = p - a;
-    float d00 = Dot(v0, v0);
-    float d01 = Dot(v0, v1);
-    float d11 = Dot(v1, v1);
-    float d20 = Dot(v2, v0);
-    float d21 = Dot(v2, v1);
+    //algorithm copied from https://gamedev.stackexchange.com/questions/23743/whats-the-most-efficient-way-to-find-barycentric-coordinates
+    //from answer by John Calsbeek, claiming it is transcribed from Christer Ericson's "Real-Time Collision Detection"
+    glm::vec4 v0 = b.gl_Position - a.gl_Position;
+    glm::vec4 v1 = c.gl_Position - a.gl_Position;
+    glm::vec4 v2 = inF->gl_FragCoord - a.gl_Position;
+    float d00 = glm::dot(v0, v0);
+    float d01 = glm::dot(v0, v1);
+    float d11 = glm::dot(v1, v1);
+    float d20 = glm::dot(v2, v0);
+    float d21 = glm::dot(v2, v1);
     float denom = d00 * d11 - d01 * d01;
-    float l0 = (d11 * d20 - d01 * d21) / denom;
-    float l1 = (d00 * d21 - d01 * d20) / denom;
-    float l2 = 1.0f - l0 - l1;
+    float l1 = (d11 * d20 - d01 * d21) / denom;
+    float l2 = (d00 * d21 - d01 * d20) / denom;
+    float l0 = 1.0f - l2 - l1;
+    //end of copied algorithm
 
     float h0 = a.gl_Position.w;
     float h1 = b.gl_Position.w;
     float h2 = c.gl_Position.w;
 
+    float mul0 = l0 / h0;
+    float mul1 = l1 / h1;
+    float mul2 = l2 / h2;
+    float div = mul0 + mul1 + mul2;
+    
+    inF->gl_FragCoord.z = (a.gl_Position.z * mul0 + b.gl_Position.z * mul1 + c.gl_Position.z * mul2) / div;
+
     for (int i = 0; i < maxAttributes; i++) {
         AttributeType type = currProgram->types[i];
-        if()
+        if (type == AttributeType::FLOAT) {
+            inF->attributes[i].v1 = (a.attributes[i].v1 * mul0 + b.attributes[i].v1 * mul1 + c.attributes[i].v1 * mul2) / div;
+        }
+        else if (type == AttributeType::VEC2) {
+            inF->attributes[i].v2 = (a.attributes[i].v2 * mul0 + b.attributes[i].v2 * mul1 + c.attributes[i].v2 * mul2) / div;
+        }
+        else if (type == AttributeType::VEC3) {
+            inF->attributes[i].v3 = (a.attributes[i].v3 * mul0 + b.attributes[i].v3 * mul1 + c.attributes[i].v3 * mul2) / div;
+        }
+        else if (type == AttributeType::VEC4) {
+            inF->attributes[i].v4 = (a.attributes[i].v4 * mul0 + b.attributes[i].v4 * mul1 + c.attributes[i].v4 * mul2) / div;
+        }
     }
 }
 
 void GPU::createFragment(Triangle* t, float x, float y) {
-    uint8_t* buffer = getFramebufferColor();
-    uint32_t ix = (uint32_t)std::floor(x);
-    uint32_t iy = (uint32_t)std::floor(y);
     InFragment inF;
     inF.gl_FragCoord.x = x;
     inF.gl_FragCoord.y = y;
@@ -825,11 +845,45 @@ void GPU::createFragment(Triangle* t, float x, float y) {
     OutFragment outF;
     currProgram->fragment_shader(outF, inF, currProgram->uniforms);
     
-    /* temp draw
-    buffer[iy * currFrameBuffer->width * 4 + ix * 4] = 255;
-    buffer[iy * currFrameBuffer->width * 4 + ix * 4 + 1] = 255;
-    buffer[iy * currFrameBuffer->width * 4 + ix * 4 + 2] = 255;
-    */
+    // test drawing? TODO decide
+    uint8_t* colorBuffer = getFramebufferColor();
+    float* depthBuffer = getFramebufferDepth();
+
+    uint32_t ix = (uint32_t)std::floor(x);
+    uint32_t iy = (uint32_t)std::floor(y);
+
+    uint8_t r, g, b, a;
+
+    if (outF.gl_FragColor.r > 1) r = 1;
+    else if (outF.gl_FragColor.r < 0) r = 0;
+    else r = (uint8_t)round(outF.gl_FragColor.r * 255);
+
+    if (outF.gl_FragColor.g > 1) g = 1;
+    else if (outF.gl_FragColor.g < 0) g = 0;
+    else g = (uint8_t)round(outF.gl_FragColor.g * 255);
+
+    if (outF.gl_FragColor.b > 1) b = 1;
+    else if (outF.gl_FragColor.b < 0) b = 0;
+    else b = (uint8_t)round(outF.gl_FragColor.b * 255);
+
+    if (outF.gl_FragColor.a > 1) a = 1;
+    else if (outF.gl_FragColor.a < 0) a = 0;
+    else a = (uint8_t)round(outF.gl_FragColor.a * 255);
+    
+    /*if (r != 255) {
+        printf("%f %f %f %f\n", outF.gl_FragColor.r, outF.gl_FragColor.g, outF.gl_FragColor.b, outF.gl_FragColor.a);
+        exit(0);
+    }*/
+
+    if (depthBuffer[iy * currFrameBuffer->width + ix] < inF.gl_FragCoord.z) return;
+
+    colorBuffer[iy * currFrameBuffer->width * 4 + ix * 4] = r;
+    colorBuffer[iy * currFrameBuffer->width * 4 + ix * 4 + 1] = g;
+    colorBuffer[iy * currFrameBuffer->width * 4 + ix * 4 + 2] = b;
+    colorBuffer[iy * currFrameBuffer->width * 4 + ix * 4 + 3] = a;
+
+    depthBuffer[iy * currFrameBuffer->width + ix] = inF.gl_FragCoord.z;
+    
 }
 
 void GPU::createFragments(Triangle* t) {
@@ -851,6 +905,7 @@ void GPU::createFragments(Triangle* t) {
     float bcdelx = c->x - b->x;
     float cadely = a->y - c->y;
     float cadelx = a->x - c->x;
+
 
     //This is the worst, stupid slow version, because faster didn't work
     float abfunc, bcfunc, cafunc;
@@ -928,6 +983,11 @@ void            GPU::drawTriangles         (uint32_t  nofVertices){
     //index buffer at each call or as ID in non-indexing mode
     triangles.clear();
     outfrags.clear();
+
+    float* depthBuffer = getFramebufferDepth();
+    for (uint64_t x = 0; x < currFrameBuffer->width; x++)
+        for (uint64_t y = 0; y < currFrameBuffer->height; y++)
+            depthBuffer[y * currFrameBuffer->width + x] = 1.f;
 
     int n = 0;
     for (uint32_t i = 0; i < nofVertices; i++) {
