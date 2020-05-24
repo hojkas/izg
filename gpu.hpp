@@ -156,7 +156,7 @@ class GPU{
     };
     std::list<Triangle*> triangles;
     void clipPlane(std::list<Triangle*>::iterator it);
-    //std::list<InFragment> infrags;
+    std::list<OutFragment> outfrags;
     void createFragments(Triangle*);
     void createFragment(Triangle*, float, float);
     void interpolate(InFragment*, Triangle*);

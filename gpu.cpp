@@ -668,7 +668,7 @@ InVertex GPU::fetchInVertex(uint32_t timesCalled) {
     InVertex iv;
     if (currVertexPuller->indexing) {
         //indexing
-        void* data = malloc(sizeof(uint32_t));
+        void* data = calloc(1, sizeof(uint32_t));
         if (currVertexPuller->index_type == IndexType::UINT8) {
             getBufferData(currVertexPuller->index_buffer, timesCalled * sizeof(uint8_t), sizeof(uint8_t), data);
             iv.gl_VertexID = *(uint8_t*)data;
@@ -692,10 +692,10 @@ InVertex GPU::fetchInVertex(uint32_t timesCalled) {
         Head* head = &currVertexPuller->heads[i];
 
         if (head->enabled) {
-
+            
             if (!isBuffer(head->buffer)) continue;
 
-            void* data = malloc(sizeof(glm::vec4));
+            void* data = calloc(1, sizeof(glm::vec4));
             uint32_t offset = head->offset + head->stride * iv.gl_VertexID;
 
             if (head->type == AttributeType::FLOAT) {
@@ -788,7 +788,7 @@ void GPU::clipPlane(std::list<Triangle*>::iterator it) {
 }
 
 void GPU::interpolate(InFragment* inF, Triangle*) {
-
+    
 }
 
 void GPU::createFragment(Triangle* t, float x, float y) {
@@ -800,6 +800,8 @@ void GPU::createFragment(Triangle* t, float x, float y) {
     inF.gl_FragCoord.y = y;
     interpolate(&inF, t);
     //TODO call fragment shader here
+    OutFragment outF;
+    currProgram->fragment_shader(outF, inF, currProgram->uniforms);
     
     /* temp draw
     buffer[iy * currFrameBuffer->width * 4 + ix * 4] = 255;
@@ -903,6 +905,8 @@ void            GPU::drawTriangles         (uint32_t  nofVertices){
     //as indexing mode doesn't change between function, i is also used as index to
     //index buffer at each call or as ID in non-indexing mode
     triangles.clear();
+    outfrags.clear();
+
     int n = 0;
     for (uint32_t i = 0; i < nofVertices; i++) {
         InVertex inv = fetchInVertex(i);
